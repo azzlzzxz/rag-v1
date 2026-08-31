@@ -1,0 +1,7 @@
+2026-08-31 19:42:37 - root - INFO - 日志系统初始化完成, 级别是 INFO
+2026-08-31 19:42:37 - __main__ - INFO - 这是一个测试日志信息
+2026-08-31 19:42:37 - __main__ - WARNING - 这是一个测试警告信息
+2026-08-31 19:42:37 - __main__ - ERROR - 这是一个测试错误信息
+2026-08-31 21:21:15 - root - INFO - 日志系统初始化完成, 级别是 INFO
+2026-08-31 21:21:15 - core.document_loader - INFO - 加载文档: /Users/steinsgate/Desktop/Study/Agent-BZ/rag-v1/tests/sample_docs/test.docx, 共 1 个文档块
+2026-08-31 21:21:15 - core.document_loader - INFO - 分割文档: /Users/steinsgate/Desktop/Study/Agent-BZ/rag-v1/tests/sample_docs/test.docx, 共 27 个文档块
