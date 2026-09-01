@@ -5,3 +5,40 @@
 2026-08-31 21:21:15 - root - INFO - 日志系统初始化完成, 级别是 INFO
 2026-08-31 21:21:15 - core.document_loader - INFO - 加载文档: /Users/steinsgate/Desktop/Study/Agent-BZ/rag-v1/tests/sample_docs/test.docx, 共 1 个文档块
 2026-08-31 21:21:15 - core.document_loader - INFO - 分割文档: /Users/steinsgate/Desktop/Study/Agent-BZ/rag-v1/tests/sample_docs/test.docx, 共 27 个文档块
+2026-09-01 15:31:40 - root - INFO - 日志系统初始化完成, 级别是 INFO
+2026-09-01 15:32:22 - root - INFO - 日志系统初始化完成, 级别是 INFO
+2026-09-01 15:32:44 - root - INFO - 日志系统初始化完成, 级别是 INFO
+2026-09-01 15:34:41 - root - INFO - 日志系统初始化完成, 级别是 INFO
+2026-09-01 15:35:33 - root - INFO - 日志系统初始化完成, 级别是 INFO
+2026-09-01 15:35:33 - core.embedding - INFO - 从本地加载embedding模型: /Users/steinsgate/Desktop/Study/Agent-BZ/rag-v1/models/bge_small_zh
+2026-09-01 15:36:12 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: /Users/steinsgate/Desktop/Study/Agent-BZ/rag-v1/models/bge_small_zh
+2026-09-01 15:36:12 - core.embedding - INFO - Embedding模型初始化完成
+2026-09-01 15:36:12 - core.document_loader - INFO - 加载文档: /Users/steinsgate/Desktop/Study/Agent-BZ/rag-v1/tests/sample_docs/test.docx, 共 1 个文档块
+2026-09-01 15:36:12 - core.document_loader - INFO - 分割文档: /Users/steinsgate/Desktop/Study/Agent-BZ/rag-v1/tests/sample_docs/test.docx, 共 6 个文档块
+2026-09-01 15:36:14 - chromadb.telemetry.product.posthog - ERROR - Failed to send telemetry event ClientStartEvent: capture() takes 1 positional argument but 3 were given
+2026-09-01 15:36:14 - chromadb.telemetry.product.posthog - ERROR - Failed to send telemetry event ClientCreateCollectionEvent: capture() takes 1 positional argument but 3 were given
+2026-09-01 15:36:14 - core.vector_store - INFO - Chroma向量库已初始化，存储路径: /Users/steinsgate/Desktop/Study/Agent-BZ/rag-v1/vector_db
+2026-09-01 15:37:31 - root - INFO - 日志系统初始化完成, 级别是 INFO
+2026-09-01 15:37:31 - core.embedding - INFO - 从本地加载embedding模型: /Users/steinsgate/Desktop/Study/Agent-BZ/rag-v1/models/bge_small_zh
+2026-09-01 15:37:34 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: /Users/steinsgate/Desktop/Study/Agent-BZ/rag-v1/models/bge_small_zh
+2026-09-01 15:37:35 - core.embedding - INFO - Embedding模型初始化完成
+2026-09-01 15:37:35 - core.document_loader - INFO - 加载文档: /Users/steinsgate/Desktop/Study/Agent-BZ/rag-v1/tests/sample_docs/test.docx, 共 1 个文档块
+2026-09-01 15:37:35 - core.document_loader - INFO - 分割文档: /Users/steinsgate/Desktop/Study/Agent-BZ/rag-v1/tests/sample_docs/test.docx, 共 6 个文档块
+2026-09-01 15:37:35 - chromadb.telemetry.product.posthog - ERROR - Failed to send telemetry event ClientStartEvent: capture() takes 1 positional argument but 3 were given
+2026-09-01 15:37:35 - chromadb.telemetry.product.posthog - ERROR - Failed to send telemetry event ClientCreateCollectionEvent: capture() takes 1 positional argument but 3 were given
+2026-09-01 15:37:35 - core.vector_store - INFO - Chroma向量库已初始化，存储路径: /Users/steinsgate/Desktop/Study/Agent-BZ/rag-v1/vector_db
+2026-09-01 15:40:51 - root - INFO - 日志系统初始化完成, 级别是 INFO
+2026-09-01 15:40:51 - core.embedding - INFO - 从本地加载embedding模型: /Users/steinsgate/Desktop/Study/Agent-BZ/rag-v1/models/bge_small_zh
+2026-09-01 15:40:55 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: /Users/steinsgate/Desktop/Study/Agent-BZ/rag-v1/models/bge_small_zh
+2026-09-01 15:40:55 - core.embedding - INFO - Embedding模型初始化完成
+2026-09-01 15:40:55 - core.document_loader - INFO - 加载文档: /Users/steinsgate/Desktop/Study/Agent-BZ/rag-v1/tests/sample_docs/test.docx, 共 1 个文档块
+2026-09-01 15:40:55 - core.document_loader - INFO - 分割文档: /Users/steinsgate/Desktop/Study/Agent-BZ/rag-v1/tests/sample_docs/test.docx, 共 6 个文档块
+2026-09-01 15:40:55 - chromadb.telemetry.product.posthog - ERROR - Failed to send telemetry event ClientStartEvent: capture() takes 1 positional argument but 3 were given
+2026-09-01 15:40:55 - chromadb.telemetry.product.posthog - ERROR - Failed to send telemetry event ClientCreateCollectionEvent: capture() takes 1 positional argument but 3 were given
+2026-09-01 15:40:55 - core.vector_store - INFO - Chroma向量库已初始化，存储路径: /Users/steinsgate/Desktop/Study/Agent-BZ/rag-v1/vector_db
+2026-09-01 15:40:55 - chromadb.telemetry.product.posthog - ERROR - Failed to send telemetry event ClientStartEvent: capture() takes 1 positional argument but 3 were given
+2026-09-01 15:40:56 - chromadb.telemetry.product.posthog - ERROR - Failed to send telemetry event ClientCreateCollectionEvent: capture() takes 1 positional argument but 3 were given
+2026-09-01 15:40:56 - core.vector_store - INFO - Chroma向量库已初始化，存储路径: /Users/steinsgate/Desktop/Study/Agent-BZ/rag-v1/vector_db
+2026-09-01 15:40:56 - core.vector_store - INFO - 成功清空所有文档
+2026-09-01 15:40:56 - core.vector_store - INFO - 成功添加 6 个文档到向量库
+2026-09-01 15:40:56 - chromadb.telemetry.product.posthog - ERROR - Failed to send telemetry event CollectionQueryEvent: capture() takes 1 positional argument but 3 were given

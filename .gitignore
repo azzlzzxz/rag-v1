@@ -1,2 +1,5 @@
 .venv
 .env
+models/*
+vector_db/*
+__pycache__
