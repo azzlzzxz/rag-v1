@@ -42,3 +42,23 @@
 2026-09-01 15:40:56 - core.vector_store - INFO - 成功清空所有文档
 2026-09-01 15:40:56 - core.vector_store - INFO - 成功添加 6 个文档到向量库
 2026-09-01 15:40:56 - chromadb.telemetry.product.posthog - ERROR - Failed to send telemetry event CollectionQueryEvent: capture() takes 1 positional argument but 3 were given
+2026-09-01 20:48:35 - root - INFO - 日志系统初始化完成, 级别是 INFO
+2026-09-01 20:50:26 - root - INFO - 日志系统初始化完成, 级别是 INFO
+2026-09-01 20:52:03 - root - INFO - 日志系统初始化完成, 级别是 INFO
+2026-09-01 20:55:58 - root - INFO - 日志系统初始化完成, 级别是 INFO
+2026-09-01 20:56:57 - root - INFO - 日志系统初始化完成, 级别是 INFO
+2026-09-01 20:56:57 - core.llm_client - INFO - SiliconFlow模型初始化完成，模型: Qwen/Qwen2.5-7B-Instruct
+2026-09-01 20:59:19 - root - INFO - 日志系统初始化完成, 级别是 INFO
+2026-09-01 20:59:20 - core.llm_client - INFO - SiliconFlow模型初始化完成，模型: Qwen/Qwen2.5-7B-Instruct
+2026-09-01 20:59:21 - core.embedding - INFO - 从本地加载embedding模型: /Users/steinsgate/Desktop/Study/Agent-BZ/rag-v1/models/bge_small_zh
+2026-09-01 20:59:21 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: /Users/steinsgate/Desktop/Study/Agent-BZ/rag-v1/models/bge_small_zh
+2026-09-01 20:59:21 - core.embedding - INFO - Embedding模型初始化完成
+2026-09-01 20:59:21 - chromadb.telemetry.product.posthog - ERROR - Failed to send telemetry event ClientStartEvent: capture() takes 1 positional argument but 3 were given
+2026-09-01 20:59:21 - chromadb.telemetry.product.posthog - ERROR - Failed to send telemetry event ClientCreateCollectionEvent: capture() takes 1 positional argument but 3 were given
+2026-09-01 20:59:21 - core.vector_store - INFO - Chroma向量库已初始化，存储路径: /Users/steinsgate/Desktop/Study/Agent-BZ/rag-v1/vector_db
+2026-09-01 20:59:21 - core.retriever - INFO - 使用本地交叉编码器模型: /Users/steinsgate/Desktop/Study/Agent-BZ/rag-v1/models/bge_reranker_base
+2026-09-01 20:59:21 - core.retriever - ERROR - 初始化Reranker失败: 1 validation error for CrossEncoderReranker
+model_name
+  Input should be a valid string [type=string_type, input_value=PosixPath('/Users/steinsg...dels/bge_reranker_base'), input_type=PosixPath]
+    For further information visit https://errors.pydantic.dev/2.13/v/string_type
+2026-09-01 20:59:21 - chromadb.telemetry.product.posthog - ERROR - Failed to send telemetry event CollectionQueryEvent: capture() takes 1 positional argument but 3 were given
