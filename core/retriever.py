@@ -48,7 +48,12 @@ class CrossEncoderReranker(BaseDocumentCompressor):
           # 预测相关性分数
           scores = self.model.predict(pairs)
           # 按分数排序并返回前top_k个文档
-          sorted_docs = [doc for _, doc in sorted(zip(scores, documents), key=lambda x: x[1], reverse=True)]
+          sorted_docs = [
+            doc
+            for _, doc in sorted(
+              zip(scores, documents), key=lambda item: item[0], reverse=True
+            )
+          ]
           return sorted_docs[:self.top_k]
         except Exception as e:
           logger.error(f"重排序失败: {e}")
@@ -69,7 +74,7 @@ class RAGRetriever:
           model_name = settings.RERANKER_MODEL_NAME
           local_model_path = settings.MODELS_DIR / model_name.replace("/", "_")
           if local_model_path.exists():
-            model_path = local_model_path
+            model_path = str(local_model_path)
             logger.info(f"使用本地交叉编码器模型: {model_path}")
           else:
             model_path = model_name
@@ -120,7 +125,9 @@ class RAGRetriever:
     def get_compresstion_retriever(self, search_kwargs: dict):
       search_kwargs = search_kwargs or {"k": settings.SEARCH_TOP_K}
       # 基础检索器
-      base_retriever = self.vector_store.as_retriever(search_kwargs=search_kwargs)
+      # as_retriever 是 LangChain VectorStore 的内置方法；
+      # self.vector_store 是 VectorStoreManager，因此应在其底层 store 上调用。
+      base_retriever = self.vector_store._store.as_retriever(search_kwargs=search_kwargs)
       
       # 如果有Reranker，则使用ContextualCompressionRetriever
       if self.reranker:
@@ -136,4 +143,3 @@ def get_rag_retriever() -> RAGRetriever:
     if _rag_retriever_instance is None:
         _rag_retriever_instance = RAGRetriever()
     return _rag_retriever_instance
-        
