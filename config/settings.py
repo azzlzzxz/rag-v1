@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     VECTOR_DB_DIR: Path = BASE_DIR / "vector_db"
     MODELS_DIR: Path = BASE_DIR / "models"
     UPLOAD_DIR: Path = BASE_DIR / "upload"
+    INGESTION_STORAGE_DIR: Path = DATA_DIR / "ingestion"
 
     VECTOR_STORE_TYPE: Literal["faiss", "chroma"] = "chroma"
     CHROMA_ANONYMIZED_TELEMETRY: bool = False
@@ -43,6 +44,8 @@ class Settings(BaseSettings):
     EMBEDDING_DEVICE: str = "cpu"
     CHUNK_SIZE: int = 500
     CHUNK_OVERLAP: int = 50
+    CHROMA_COLLECTION_NAME: str = "langchain"
+    EXCEL_ROWS_PER_DOCUMENT: int = 30
 
     SEARCH_TOP_K: int = 5
     USE_RERANKER: bool = True
@@ -100,6 +103,7 @@ class Settings(BaseSettings):
             self.VECTOR_DB_DIR,
             self.MODELS_DIR,
             self.UPLOAD_DIR,
+            self.INGESTION_STORAGE_DIR,
         ):
             directory.mkdir(parents=True, exist_ok=True)
 

@@ -1,127 +1,93 @@
-"""
-文件上传API
-"""
+"""文件上传 API：保存原文件并提交 LlamaIndex 后台摄取任务。"""
+
+import logging
 import shutil
 import uuid
 from pathlib import Path
 from typing import List
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks
-from fastapi.params import Depends
+
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
-import logging
+
+from api.dependencies import get_ingestion_service_dep
 from config.settings import settings
-from api.dependencies import get_vector_store_dep
-from core.vector_store import VectorStoreManager
-from core.document_loader import DocumentLoader
+from core.ingestion import IngestionService
+from core.ingestion.readers import EnterpriseDocumentReader
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/upload", tags=["文件上传"])
 
 
-def process_file_background(file_path: str, metadata: dict, vector_store: VectorStoreManager):
-    """后台处理文件并添加到向量库"""
+def _save_upload(file: UploadFile) -> tuple[str, str, Path]:
+    original_filename = Path(file.filename or "").name
+    file_ext = Path(original_filename).suffix.lower()
+    if file_ext not in EnterpriseDocumentReader.SUPPORTED_EXTENSIONS:
+        raise HTTPException(400, f"不支持的文件格式: {file_ext}")
+    file_id = uuid.uuid4().hex[:8]
+    save_path = settings.UPLOAD_DIR / f"{file_id}_{original_filename}"
     try:
-        loader = DocumentLoader()
-        docs = loader.load_file(file_path, metadata)
-        if docs:
-            vector_store.add_documents(docs)
-            logger.info(f"后台处理完成: {file_path}，添加 {len(docs)} 个片段")
-        else:
-            logger.warning(f"文件无有效内容: {file_path}")
-    except Exception as e:
-        logger.error(f"后台处理文件失败: {file_path}, 错误: {e}")
+        with save_path.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    except Exception as exc:
+        logger.exception("文件保存失败: %s", original_filename)
+        raise HTTPException(500, "文件保存失败") from exc
+    return file_id, original_filename, save_path
 
 
-@router.post("/file")
+@router.post("/file", status_code=202)
 async def upload_file(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     category: str = Form("general"),
-    vector_store: VectorStoreManager = Depends(get_vector_store_dep)
+    ingestion: IngestionService = Depends(get_ingestion_service_dep),
 ):
-    """
-    上传单个文件
-    """
-    # 验证文件类型
-    allowed_extensions = {'.pdf', '.docx', '.doc', '.txt', '.md', '.xlsx', '.xls'}
-    # 只保留文件名，丢弃客户端可能携带的目录，防止路径穿越写出 upload 目录。
-    original_filename = Path(file.filename or "").name
-    file_ext = Path(original_filename).suffix.lower()
-    if file_ext not in allowed_extensions:
-        raise HTTPException(400, f"不支持的文件格式: {file_ext}")
-
-    # 生成唯一文件名
-    unique_id = uuid.uuid4().hex[:8]
-    safe_filename = f"{unique_id}_{original_filename}"
-    save_path = settings.UPLOAD_DIR / safe_filename
-
-    # 保存文件
-    try:
-        with open(save_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-    except Exception as e:
-        logger.error(f"文件保存失败: {e}")
-        raise HTTPException(500, f"文件保存失败: {str(e)}")
-
-    # 元数据
-    metadata = {
-        "category": category,
-        "original_filename": original_filename,
-        "upload_time": str(Path(save_path).stat().st_ctime)
-    }
-
-    # 后台处理添加到向量库
+    file_id, original_filename, save_path = _save_upload(file)
+    # 先持久化 pending，再把任务交给后台；即使进程中途异常，客户端也能查询到任务记录。
+    ingestion.jobs.create(file_id, original_filename)
     background_tasks.add_task(
-        process_file_background,
-        str(save_path),
-        metadata,
-        vector_store
+        ingestion.process_job, file_id, str(save_path), category, original_filename
+    )
+    return JSONResponse(
+        status_code=202,
+        content={
+            "status": "pending",
+            "message": f"文件 {original_filename} 上传成功，正在后台处理",
+            "file_id": file_id,
+            "filename": save_path.name,
+        },
     )
 
-    return JSONResponse({
-        "status": "success",
-        "message": f"文件 {original_filename} 上传成功，正在后台处理",
-        "file_id": unique_id,
-        "filename": safe_filename
-    })
+
+@router.get("/status/{file_id}")
+async def get_upload_status(
+    file_id: str,
+    ingestion: IngestionService = Depends(get_ingestion_service_dep),
+):
+    job = ingestion.jobs.get(file_id)
+    if job is None:
+        raise HTTPException(404, "上传任务不存在")
+    return job.to_dict()
 
 
-@router.post("/batch")
+@router.post("/batch", status_code=202)
 async def upload_batch_files(
     background_tasks: BackgroundTasks,
     files: List[UploadFile] = File(...),
     category: str = Form("general"),
-    vector_store: VectorStoreManager = Depends(get_vector_store_dep)
+    ingestion: IngestionService = Depends(get_ingestion_service_dep),
 ):
-    """
-    批量上传文件
-    """
     results = []
     for file in files:
         try:
-            # 批量上传与单文件上传采用相同的文件名净化规则。
-            original_filename = Path(file.filename or "").name
-            file_ext = Path(original_filename).suffix.lower()
-            allowed = {'.pdf', '.docx', '.doc', '.txt', '.md', '.xlsx', '.xls'}
-            if file_ext not in allowed:
-                results.append({"filename": file.filename, "status": "skipped", "reason": "不支持的文件格式"})
-                continue
-
-            unique_id = uuid.uuid4().hex[:8]
-            safe_filename = f"{unique_id}_{original_filename}"
-            save_path = settings.UPLOAD_DIR / safe_filename
-
-            with open(save_path, "wb") as buffer:
-                shutil.copyfileobj(file.file, buffer)
-
-            metadata = {
-                "category": category,
-                "original_filename": original_filename,
-            }
-            background_tasks.add_task(process_file_background, str(save_path), metadata, vector_store)
-
-            results.append({"filename": file.filename, "status": "success", "file_id": unique_id})
-        except Exception as e:
-            results.append({"filename": file.filename, "status": "error", "reason": str(e)})
-
-    return JSONResponse({"results": results})
+            file_id, original_filename, save_path = _save_upload(file)
+            ingestion.jobs.create(file_id, original_filename)
+            background_tasks.add_task(
+                ingestion.process_job, file_id, str(save_path), category, original_filename
+            )
+            results.append({"filename": original_filename, "status": "pending", "file_id": file_id})
+        except HTTPException as exc:
+            results.append({"filename": file.filename, "status": "skipped", "reason": exc.detail})
+        except Exception:
+            logger.exception("批量上传保存失败: %s", file.filename)
+            results.append({"filename": file.filename, "status": "error", "reason": "文件保存失败"})
+    return JSONResponse(status_code=202, content={"results": results})

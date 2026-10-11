@@ -31,7 +31,10 @@ class VectorStoreManager:
         persist_directory=str(settings.VECTOR_DB_DIR),
         # 关闭匿名遥测，避免面试演示时出现 PostHog 网络请求和无关错误日志。
         client_settings=ChromaSettings(
-          anonymized_telemetry=settings.CHROMA_ANONYMIZED_TELEMETRY
+          anonymized_telemetry=settings.CHROMA_ANONYMIZED_TELEMETRY,
+          # 传入 client_settings 后旧 LangChain 适配器不会自动开启持久化，必须显式设置。
+          # 否则阶段 2 的 LlamaIndex 写入磁盘，而旧问答链只会看到一个空的内存 collection。
+          is_persistent=True,
         ),
       )
       logger.info(f"Chroma向量库已初始化，存储路径: {settings.VECTOR_DB_DIR}")
