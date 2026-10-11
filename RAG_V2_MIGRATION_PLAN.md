@@ -118,12 +118,11 @@ llama-index-core
 llama-index-readers-file
 llama-index-vector-stores-chroma
 llama-index-embeddings-huggingface
+llama-index-retrievers-bm25
 llama-index-llms-openai-like（如所选版本支持且确有需要）
 
 chromadb
 sentence-transformers
-rank-bm25
-jieba
 fastapi
 uvicorn
 pydantic-settings
@@ -293,10 +292,10 @@ python scripts/list_nodes.py --limit 10
 **改动范围**
 
 - `VectorIndexRetriever` 负责语义召回；
-- 自定义 `ChineseBM25Retriever` 使用 jieba + rank-bm25；
-- 使用 Query Fusion/RRF，或实现等价可测试的 RRF 融合器；
+- 使用官方 `llama-index-retrievers-bm25`，项目只配置中文 token 边界；
+- 使用原生 `QueryFusionRetriever` 的 RRF，不在项目内重复实现融合公式；
 - 原始问题与改写问题可分别召回再融合；
-- BGE CrossEncoder 作为 postprocessor/reranker；
+- 使用原生 `SentenceTransformerRerank` 接入 BGE CrossEncoder；
 - 统一输出 NodeWithScore 和 retrieval trace；
 - 增加最低证据阈值与无证据结果；
 - 上传、删除、更新后同步刷新 BM25 索引。

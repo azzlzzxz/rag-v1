@@ -45,18 +45,17 @@ from typing import Any, Sequence
 
 import chromadb
 from chromadb.config import Settings as ChromaSettings
-from llama_index.core.embeddings import BaseEmbedding
 from llama_index.core.ingestion import DocstoreStrategy, IngestionCache, IngestionPipeline
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.core.schema import BaseNode, TransformComponent
 from llama_index.core.storage.docstore import SimpleDocumentStore
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
 
 from config.settings import Settings, settings
 from core.ingestion.ids import build_document_id, sha256_file, stable_chunk_id
 from core.ingestion.jobs import IngestionJobRepository
 from core.ingestion.readers import EnterpriseDocumentReader
+from core.llama_embedding import get_llama_embedding
 
 logger = logging.getLogger(__name__)
 
@@ -156,16 +155,8 @@ class IngestionService:
         collection = client.get_or_create_collection(self.settings.CHROMA_COLLECTION_NAME)
         vector_store = ChromaVectorStore(chroma_collection=collection)
 
-        # 优先使用项目内已经下载的模型；目录不存在时才把配置值当作 HuggingFace 模型名。
-        model_path = self.settings.MODELS_DIR / self.settings.EMBEDDING_MODEL_NAME.replace("/", "_")
-        model_name = str(model_path) if model_path.exists() else self.settings.EMBEDDING_MODEL_NAME
-        embedding: BaseEmbedding = HuggingFaceEmbedding(
-            model_name=model_name,
-            device=self.settings.EMBEDDING_DEVICE,
-            normalize=True,
-            # 明确缓存目录，避免 LlamaIndex 默认写入用户级 ~/Library/Caches，部署时也更易挂载。
-            cache_folder=str(self.settings.MODELS_DIR),
-        )
+        # 摄取端与阶段 3 检索端共用同一个模型实例，避免重复加载 BGE。
+        embedding = get_llama_embedding(self.settings)
         # 与旧 LangChain 检索器共用 `langchain` collection，保证阶段 2 上传后旧问答链仍能查到数据。
         return IngestionPipeline(
             transformations=[

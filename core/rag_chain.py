@@ -69,7 +69,8 @@ class RAGChain:
         """
         history_aware_retriever = create_history_aware_retriever(
             self.llm, 
-            self.retriever.get_compresstion_retriever(search_kwargs={"k": settings.SEARCH_TOP_K}), 
+            # 阶段 3：适配器内部已经执行向量 + BM25 + RRF + 可选 rerank。
+            self.retriever.get_compression_retriever(search_kwargs={"k": settings.SEARCH_TOP_K}),
             contextualize_q_prompt
         )
 

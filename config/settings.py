@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     EXCEL_ROWS_PER_DOCUMENT: int = 30
 
     SEARCH_TOP_K: int = 5
+    RETRIEVAL_CANDIDATE_K: int = 20
+    RETRIEVAL_MIN_FUSION_SCORE: float = 0.0
+    RETRIEVAL_MIN_RERANK_SCORE: float = 0.2
     USE_RERANKER: bool = True
     RERANKER_MODEL_NAME: str = "bge_reranker_base"
 
