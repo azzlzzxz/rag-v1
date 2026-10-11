@@ -1,7 +1,7 @@
 # 企业知识库 RAG Agent V2 改造计划
 
 > 项目：`rag-v1`  
-> 目标分支：`main`  
+> 当前改造分支：`feat/rag-v2-migration`
 > 当前基线：LangChain `0.3.7`、LangChain Community `0.3.5`、Chroma/FAISS、自定义文档加载与检索  
 > 目标：在保留可运行基线的前提下，引入 LlamaIndex 负责数据摄取与检索，升级到 LangChain 1.x / LangGraph 1.x，并形成可演示、可评测、可恢复的企业知识库 Agent。
 
@@ -28,7 +28,7 @@ LlamaIndex 负责：
 - docstore、文档 hash、重复检测和增量更新；
 - Chroma 适配和 `VectorStoreIndex`；
 - `VectorIndexRetriever`；
-- 中文 BM25 自定义 retriever；
+- 官方 BM25Retriever + 项目中文 token 边界配置；
 - RRF/Query Fusion、rerank 和 NodeWithScore；
 - 检索评测输入输出。
 

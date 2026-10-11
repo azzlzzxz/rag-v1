@@ -1,7 +1,8 @@
-"""LlamaIndex 混合检索与旧 LangChain RAGChain 之间的兼容层。
+"""LlamaIndex 混合检索与旧脚本之间的兼容层。
 
 阶段 3 的真实检索逻辑位于 ``core/retrieval``。本文件只负责把 LlamaIndex NodeWithScore
-转换为 LangChain Document，使阶段 4 改造 LangGraph 之前，现有问答接口仍可运行。
+转换为 LangChain Document。阶段 4 的 LangGraph 已直接使用标准 Retrieval Tool；这里仅为
+已有脚本和调用方保留旧方法，不再参与 Agent 主链。
 """
 
 from __future__ import annotations
@@ -28,7 +29,7 @@ def _to_langchain_document(node_with_score) -> Document:
 
 
 class HybridLangChainRetriever(BaseRetriever):
-    """满足旧 ``create_history_aware_retriever`` 接口的薄适配器。"""
+    """满足旧 LangChain Retriever 调用方的薄适配器。"""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 

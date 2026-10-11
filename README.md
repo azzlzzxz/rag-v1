@@ -25,7 +25,9 @@
 | **嵌入模型** | BAAI/bge-small-zh-v1.5 |
 | **向量数据库** | Chroma / FAISS |
 | **文档处理** | PyMuPDF、python-docx、Unstructured |
-| **框架** | LangChain (LCEL) |
+| **数据与检索** | LlamaIndex（Node、BM25、向量检索、RRF、Rerank） |
+| **模型与工具** | LangChain 1.x |
+| **有状态编排** | LangGraph 1.x + SQLite Checkpoint |
 | **部署** | Docker + Docker Compose |
 
 ---
@@ -110,9 +112,11 @@ rag-qa-system/
 │   ├── embedding.py        # 嵌入模型加载（单例）
 │   ├── vector_store.py     # 向量库增删查（Chroma/FAISS）
 │   ├── llm_client.py       # 大模型客户端（工厂模式）
-│   ├── retriever.py        # 检索器（支持重排序）
-│   ├── memory_manager.py   # 多轮对话记忆管理
-│   └── rag_chain.py        # LCEL 完整问答链
+│   ├── ingestion/          # LlamaIndex 文档摄取
+│   ├── retrieval/          # 混合检索与 Rerank
+│   ├── agent/              # LangGraph 状态、Tool、改写与工作流
+│   ├── retriever.py        # 旧脚本的临时兼容层
+│   └── rag_chain.py        # 对 LangGraph Agent 的 API 兼容门面
 ├── api/                    # FastAPI 后端
 │   ├── routes/
 │   │   ├── upload.py       # 文件上传接口

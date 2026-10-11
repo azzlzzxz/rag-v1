@@ -4,10 +4,9 @@ uvicorn[standard]>=0.30,<1
 python-multipart>=0.0.12,<1
 streamlit>=1.39,<2
 
-# LangChain v1. langchain-classic is transitional and will be removed in phase 4.
+# LangChain v1. 旧 langchain-classic 主链已在阶段 4 移除。
 langchain>=1.0,<2
 langchain-core>=1.0,<2
-langchain-classic>=1.0,<2
 langchain-community>=0.4,<1
 langchain-huggingface>=1.0,<2
 langchain-openai>=1.0,<2

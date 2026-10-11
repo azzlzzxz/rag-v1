@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     MODELS_DIR: Path = BASE_DIR / "models"
     UPLOAD_DIR: Path = BASE_DIR / "upload"
     INGESTION_STORAGE_DIR: Path = DATA_DIR / "ingestion"
+    CHECKPOINT_DB_PATH: Path = DATA_DIR / "agent_checkpoints.db"
 
     VECTOR_STORE_TYPE: Literal["faiss", "chroma"] = "chroma"
     CHROMA_ANONYMIZED_TELEMETRY: bool = False
@@ -53,6 +54,10 @@ class Settings(BaseSettings):
     RETRIEVAL_MIN_RERANK_SCORE: float = 0.2
     USE_RERANKER: bool = True
     RERANKER_MODEL_NAME: str = "bge_reranker_base"
+
+    # Agent 仅保留最近若干轮历史进入提示词；完整消息仍由 SQLite checkpoint 保存。
+    AGENT_HISTORY_WINDOW: int = 5
+    AGENT_LLM_MAX_RETRIES: int = 1
 
     LLM_PROVIDER: Literal["openai", "siliconflow", "ollama"] = "siliconflow"
 
@@ -107,6 +112,7 @@ class Settings(BaseSettings):
             self.MODELS_DIR,
             self.UPLOAD_DIR,
             self.INGESTION_STORAGE_DIR,
+            self.CHECKPOINT_DB_PATH.parent,
         ):
             directory.mkdir(parents=True, exist_ok=True)
 
