@@ -7,7 +7,14 @@ from contextlib import asynccontextmanager
 
 from config.settings import settings
 from config.logging_config import setup_logging
-from api.routes import upload_router, qa_router, knowledge_router, system_router
+from api.routes import (
+    documents_router,
+    knowledge_router,
+    qa_router,
+    sessions_router,
+    system_router,
+    upload_router,
+)
 
 # 配置日志
 setup_logging()
@@ -16,9 +23,9 @@ setup_logging()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
-    # 启动时初始化
-    from core.vector_store import get_vector_store_manager
-    get_vector_store_manager()  # 预加载向量库
+    # 只初始化轻量服务对象；Embedding 和 Reranker 继续在首次真实任务时延迟加载。
+    from core.ingestion import get_ingestion_service
+    get_ingestion_service()
     yield
     # 关闭时清理
     pass
@@ -53,6 +60,8 @@ app.include_router(upload_router, prefix="/api/v1")
 app.include_router(qa_router, prefix="/api/v1")
 app.include_router(knowledge_router, prefix="/api/v1")
 app.include_router(system_router, prefix="/api/v1")
+app.include_router(documents_router, prefix="/api/v1")
+app.include_router(sessions_router, prefix="/api/v1")
 
 
 @app.get("/")

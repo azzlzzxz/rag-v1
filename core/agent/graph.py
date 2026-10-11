@@ -226,6 +226,11 @@ class RAGAgent:
         citations = [
             {
                 "node_id": node["node_id"],
+                "chunk_id": node["metadata"].get("chunk_id", node["node_id"]),
+                "document_id": node["metadata"].get("document_id"),
+                "file_name": node["metadata"].get(
+                    "file_name", node["metadata"].get("source", "未知")
+                ),
                 "source": node["metadata"].get(
                     "file_name", node["metadata"].get("source", "未知")
                 ),

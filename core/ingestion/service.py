@@ -88,6 +88,15 @@ class IngestionResult:
     skipped: bool
 
 
+@dataclass(frozen=True)
+class DeletionResult:
+    """按 document_id 删除知识库文档后的结果。"""
+
+    document_id: str
+    deleted: bool
+    deleted_chunks: int
+
+
 class IngestionService:
     """协调文档读取、增量判断、Embedding、向量写入和摄取状态。
 
@@ -282,9 +291,87 @@ class IngestionService:
                 "category": category,
                 "ingested_at": first_ingested_at,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
+                # 删除 API 需要清理上传原文件；使用前仍会校验路径必须位于 UPLOAD_DIR。
+                "upload_path": str(path.resolve()),
             }
             self._save_manifest(manifest)
             return IngestionResult(document_id=document_id, node_count=len(nodes), skipped=False)
+
+    def delete_document(self, document_id: str) -> DeletionResult:
+        """删除文档的向量、docstore 引用、manifest 和安全范围内的上传原文件。
+
+        删除接口只接受稳定 ``document_id``，不接受调用方给出的任意磁盘路径，从入口上避免
+        旧 source_path 删除方式可能造成的路径越界。
+        """
+        with self._lock:
+            manifest = self._load_manifest()
+            record = manifest.get(document_id)
+            if record is None:
+                return DeletionResult(document_id=document_id, deleted=False, deleted_chunks=0)
+
+            # 直接按 metadata 查询 Chroma，删除操作无需加载 Embedding 模型。
+            client = chromadb.PersistentClient(
+                path=str(self.settings.VECTOR_DB_DIR),
+                settings=ChromaSettings(
+                    anonymized_telemetry=self.settings.CHROMA_ANONYMIZED_TELEMETRY
+                ),
+            )
+            collection = client.get_or_create_collection(self.settings.CHROMA_COLLECTION_NAME)
+            stored = collection.get(where={"document_id": document_id}, include=[])
+            node_ids = list(stored.get("ids") or [])
+            if node_ids:
+                collection.delete(ids=node_ids)
+
+            source_ids = list(record.get("source_ids") or [])
+            # Pipeline 已初始化时更新其内存 docstore；否则只加载轻量 JSON docstore。
+            docstore = self._pipeline.docstore if self._pipeline is not None else None
+            if docstore is None and self._docstore_path.exists():
+                docstore = SimpleDocumentStore.from_persist_path(str(self._docstore_path))
+            if docstore is not None:
+                for source_id in source_ids:
+                    docstore.delete_ref_doc(source_id, raise_error=False)
+                docstore.persist(str(self._docstore_path))
+
+            manifest.pop(document_id)
+            self._save_manifest(manifest)
+
+            # 旧 manifest 没有 upload_path 时跳过；越界路径只告警，绝不删除。
+            upload_path_value = record.get("upload_path")
+            if upload_path_value:
+                upload_path = Path(upload_path_value).resolve()
+                upload_root = self.settings.UPLOAD_DIR.resolve()
+                if upload_path.is_relative_to(upload_root) and upload_path.is_file():
+                    upload_path.unlink()
+                elif not upload_path.is_relative_to(upload_root):
+                    logger.warning("忽略 manifest 中越界的上传路径: document_id=%s", document_id)
+
+            return DeletionResult(
+                document_id=document_id,
+                deleted=True,
+                deleted_chunks=len(node_ids),
+            )
+
+    def get_knowledge_stats(self) -> dict[str, Any]:
+        """从 LlamaIndex manifest 和 Chroma 返回稳定统计，不经过旧 LangChain VectorStore。"""
+        with self._lock:
+            manifest = self._load_manifest()
+        categories: dict[str, int] = {}
+        for record in manifest.values():
+            category = str(record.get("category") or "general")
+            categories[category] = categories.get(category, 0) + 1
+
+        client = chromadb.PersistentClient(
+            path=str(self.settings.VECTOR_DB_DIR),
+            settings=ChromaSettings(
+                anonymized_telemetry=self.settings.CHROMA_ANONYMIZED_TELEMETRY
+            ),
+        )
+        collection = client.get_or_create_collection(self.settings.CHROMA_COLLECTION_NAME)
+        return {
+            "document_count": len(manifest),
+            "node_count": collection.count(),
+            "categories": categories,
+        }
 
     def process_job(
         self,

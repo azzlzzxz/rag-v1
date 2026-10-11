@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 from api.dependencies import get_ingestion_service_dep
 from config.settings import settings
 from core.ingestion import IngestionService
+from core.ingestion.ids import build_document_id
 from core.ingestion.readers import EnterpriseDocumentReader
 
 logger = logging.getLogger(__name__)
@@ -53,6 +54,7 @@ async def upload_file(
             "status": "pending",
             "message": f"文件 {original_filename} 上传成功，正在后台处理",
             "file_id": file_id,
+            "document_id": build_document_id(category, original_filename),
             "filename": save_path.name,
         },
     )

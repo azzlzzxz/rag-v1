@@ -147,11 +147,14 @@ rag-qa-system/
 | 方法 | 路径 | 说明 |
 | ------ | ------ | ------ |
 | GET | `/api/v1/system/health` | 健康检查 |
-| POST | `/api/v1/upload/file` | 上传单个文件 |
-| POST | `/api/v1/qa/ask` | 问答请求 |
-| POST | `/api/v1/qa/clear_memory` | 清除对话记忆 |
+| POST | `/api/v1/documents/upload` | 上传文档，返回任务 ID 和文档 ID |
+| GET | `/api/v1/documents/{file_id}/status` | 查询摄取状态 |
+| DELETE | `/api/v1/documents/{document_id}` | 删除业务文档 |
+| POST | `/api/v1/qa/ask` | 稳定问答契约与引用 |
+| POST | `/api/v1/qa/stream` | SSE 问答生命周期事件 |
+| GET | `/api/v1/sessions/{thread_id}/history` | 获取持久化对话历史 |
+| DELETE | `/api/v1/sessions/{thread_id}` | 清除指定会话 |
 | GET | `/api/v1/knowledge/stats` | 知识库统计 |
-| POST | `/api/v1/knowledge/clear` | 清空知识库 |
 
 详细文档访问：<http://localhost:8000/docs>
 

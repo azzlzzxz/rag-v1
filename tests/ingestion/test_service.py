@@ -70,3 +70,70 @@ def test_changed_file_is_ingested_as_update(tmp_path: Path):
 
     assert updated.skipped is False
     assert pipeline.calls == 2
+
+
+def test_delete_document_removes_storage_manifest_and_only_safe_upload(tmp_path: Path, monkeypatch):
+    settings = make_settings(tmp_path)
+    settings.UPLOAD_DIR.mkdir(parents=True)
+    pipeline = FakePipeline()
+    service = IngestionService(settings, pipeline=pipeline)
+    uploaded_file = settings.UPLOAD_DIR / "abc_policy.txt"
+    uploaded_file.write_text("制度", encoding="utf-8")
+    service._save_manifest(
+        {
+            "doc-1": {
+                "source_ids": ["source-1"],
+                "upload_path": str(uploaded_file),
+            }
+        }
+    )
+
+    class FakeCollection:
+        def __init__(self):
+            self.deleted = []
+
+        def get(self, **kwargs):
+            assert kwargs["where"] == {"document_id": "doc-1"}
+            return {"ids": ["chunk-1", "chunk-2"]}
+
+        def delete(self, ids):
+            self.deleted.extend(ids)
+
+    collection = FakeCollection()
+    fake_client = SimpleNamespace(get_or_create_collection=lambda _name: collection)
+    monkeypatch.setattr(
+        "core.ingestion.service.chromadb.PersistentClient",
+        lambda **kwargs: fake_client,
+    )
+
+    result = service.delete_document("doc-1")
+
+    assert result.deleted is True
+    assert result.deleted_chunks == 2
+    assert collection.deleted == ["chunk-1", "chunk-2"]
+    assert pipeline.docstore.deleted == ["source-1"]
+    assert service._load_manifest() == {}
+    assert uploaded_file.exists() is False
+
+
+def test_delete_document_never_unlinks_path_outside_upload_dir(tmp_path: Path, monkeypatch):
+    settings = make_settings(tmp_path)
+    settings.UPLOAD_DIR.mkdir(parents=True)
+    outside_file = tmp_path / "must-stay.txt"
+    outside_file.write_text("不能删除", encoding="utf-8")
+    service = IngestionService(settings, pipeline=FakePipeline())
+    service._save_manifest(
+        {"doc-outside": {"source_ids": [], "upload_path": str(outside_file)}}
+    )
+
+    collection = SimpleNamespace(get=lambda **kwargs: {"ids": []})
+    fake_client = SimpleNamespace(get_or_create_collection=lambda _name: collection)
+    monkeypatch.setattr(
+        "core.ingestion.service.chromadb.PersistentClient",
+        lambda **kwargs: fake_client,
+    )
+
+    result = service.delete_document("doc-outside")
+
+    assert result.deleted is True
+    assert outside_file.read_text(encoding="utf-8") == "不能删除"
