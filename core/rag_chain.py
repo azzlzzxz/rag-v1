@@ -6,9 +6,11 @@ import logging
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.messages import HumanMessage, AIMessage
-from langchain.chains.history_aware_retriever import create_history_aware_retriever
-from langchain.chains.combine_documents import create_stuff_documents_chain
-from langchain.chains.retrieval import create_retrieval_chain
+# 迁移过渡：以下旧 Chain API 在 LangChain 1.x 中已迁至 langchain-classic。
+# 当前先保证旧问答链可运行，阶段 4 会整体替换为 LangGraph StateGraph。
+from langchain_classic.chains.history_aware_retriever import create_history_aware_retriever
+from langchain_classic.chains.combine_documents import create_stuff_documents_chain
+from langchain_classic.chains.retrieval import create_retrieval_chain
 
 from core.llm_client import get_llm
 from core.retriever import get_rag_retriever

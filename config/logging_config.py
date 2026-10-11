@@ -7,41 +7,47 @@
 
 import logging
 import sys
-from config.settings import settings
 from logging.handlers import RotatingFileHandler
 
-def setup_logging():
-    """"配置全局日志的函数"""
+from config.settings import settings
+
+def setup_logging() -> None:
+    """Configure console logging and optional rotating file logging once."""
     log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     date_format = "%Y-%m-%d %H:%M:%S"
 
     # 根日志器
     root_logger = logging.getLogger()
-    root_logger.setLevel(getattr(logging, settings.LOG_LEVEL))
+    # FastAPI reload 或测试重复导入时避免重复添加 handler，防止同一日志打印多次。
+    if getattr(root_logger, "_rag_logging_configured", False):
+        return
+
+    log_level = getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO)
+    root_logger.setLevel(log_level)
 
     # 控制台处理器
     console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(getattr(logging, settings.LOG_LEVEL))
+    console_handler.setLevel(log_level)
     console_handler.setFormatter(logging.Formatter(log_format, datefmt=date_format))
     root_logger.addHandler(console_handler)
 
-    # 文件处理器 (带轮转)
-    # 设置日志文件的大小，当达到大小的时候，会自动轮转
-    file_handler = RotatingFileHandler(
-        settings.LOG_FILE, 
-        maxBytes=10*1024*1024,  # 10MB
-        backupCount=5,  # 保留5个备份
-        encoding="utf-8"
+    # 测试环境可通过 LOG_TO_FILE=false 关闭文件写入，保持 Git 工作区干净。
+    if settings.LOG_TO_FILE:
+        settings.LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+        file_handler = RotatingFileHandler(
+            settings.LOG_FILE,
+            maxBytes=10 * 1024 * 1024,
+            backupCount=5,
+            encoding="utf-8",
         )
-    file_handler.setLevel(logging.DEBUG)
-    file_handler.setFormatter(logging.Formatter(log_format, datefmt=date_format))
-    root_logger.addHandler(file_handler)
+        file_handler.setLevel(log_level)
+        file_handler.setFormatter(logging.Formatter(log_format, datefmt=date_format))
+        root_logger.addHandler(file_handler)
 
     # 减少第三方库的日志噪声 （可选）
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("chromadb").setLevel(logging.WARNING)
 
-    # 测试日志
-    root_logger.info(f"日志系统初始化完成, 级别是 {settings.LOG_LEVEL}")
-    
+    root_logger._rag_logging_configured = True
+    root_logger.info("日志系统初始化完成, 级别是 %s", settings.LOG_LEVEL)

@@ -38,9 +38,12 @@ class DocumentLoader:
         ".markdown": UnstructuredMarkdownLoader,
     }
     
-    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200):
-        self.chunk_size = chunk_size
-        self.chunk_overlap = chunk_overlap
+    def __init__(self, chunk_size: int = None, chunk_overlap: int = None):
+        # 未显式传参时统一使用全局配置，避免测试、上传接口和离线脚本的切片参数不一致。
+        self.chunk_size = chunk_size or settings.CHUNK_SIZE
+        self.chunk_overlap = (
+            settings.CHUNK_OVERLAP if chunk_overlap is None else chunk_overlap
+        )
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=self.chunk_size,
             chunk_overlap=self.chunk_overlap,
@@ -49,7 +52,7 @@ class DocumentLoader:
         )
 
     
-    def load_file(self, file_path: str):
+    def load_file(self, file_path: str, metadata: dict | None = None):
         file_path = Path(file_path)
         if not file_path.exists():
             raise FileNotFoundError(f"文件不存在: {file_path}")
@@ -68,6 +71,9 @@ class DocumentLoader:
             logger.info(f"加载文档: {file_path}, 共 {len(documents)} 个文档块")
             # 添加元数据
             for doc in documents:
+                # 上传接口传入的 category、原始文件名等业务 metadata 必须传播到每个 chunk，
+                # 后续才能按知识库过滤、删除文档并生成可追溯引用。
+                doc.metadata.update(metadata or {})
                 doc.metadata["file_path"] = str(file_path)
                 doc.metadata["file_name"] = file_path.name
                 doc.metadata["file_type"] = suffix[1:]
@@ -78,8 +84,7 @@ class DocumentLoader:
             return documents
         except Exception as e:
             logger.error(f"加载文档失败: {e}")
-            raise e
-            return []
+            raise
         
         
     
@@ -101,4 +106,3 @@ class DocumentLoader:
                 documents.extend(self.load_file(str(file_path)))
         logger.info(f"加载目录: {directory_path}, 共 {len(documents)} 个文档块")
         return documents
-    

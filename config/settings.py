@@ -1,69 +1,108 @@
+"""Application configuration loaded from environment variables."""
+
 from pathlib import Path
 from typing import Literal
-from pydantic_settings import BaseSettings
+
+from pydantic import AliasChoices, Field, SecretStr, computed_field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+# 放在 Settings 类外部，避免 Pydantic 把路径常量误当成需要从环境变量解析的字段。
+BASE_DIR = Path(__file__).parent.parent.resolve()
+
 
 class Settings(BaseSettings):
-  """
-  配置管理
-  """
-  # 项目基本配置
-  PROJECT_NAME: str = "企业级RAG智能问答系统"
-  PROJECT_VERSION: str = "1.0.0"
-  BASE_DIR : Path = Path(__file__).parent.parent.resolve()
+    """Central configuration for the API and the RAG runtime."""
 
-  # 数据目录
-  DATA_DIR: Path = BASE_DIR / "data"
-  VECTOR_DB_DIR : Path = BASE_DIR / "vector_db"
-  MODELS_DIR : Path = BASE_DIR / "models"
-  UPLOAD_DIR : Path = BASE_DIR / "upload"
+    # Pydantic Settings 2.x 使用 model_config；旧版内部 class Config 已不再推荐。
+    # `.env` 只在本地读取，文件本身由 .gitignore 排除，避免密钥进入版本库。
+    model_config = SettingsConfigDict(
+        env_file=BASE_DIR / ".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        case_sensitive=False,
+        populate_by_name=True,
+    )
 
-  # 向量库配置
-  VECTOR_STORE_TYPE : Literal["faiss", "chroma"] = "chroma"
-  EMBEDDING_MODEL_NAME : str = "bge_small_zh"
-  EMBEDDING_DEVICE : str = "cpu"      # 可以配置cuda
-  CHUNK_SIZE : int = 500
-  CHUNK_OVERLAP : int = 50
+    PROJECT_NAME: str = "企业级RAG智能问答系统"
+    # AliasChoices 兼容旧 `.env` 中的 VERSION，允许迁移期间不立即修改个人配置。
+    PROJECT_VERSION: str = Field(
+        default="1.0.0",
+        validation_alias=AliasChoices("PROJECT_VERSION", "VERSION"),
+    )
+    BASE_DIR: Path = BASE_DIR
 
-  # 检索配置
-  SEARCH_TOP_K : int = 5
-  USE_RERANKER : bool = True
-  RERANKER_MODEL_NAME : str = "bge_reranker_base"
+    DATA_DIR: Path = BASE_DIR / "data"
+    VECTOR_DB_DIR: Path = BASE_DIR / "vector_db"
+    MODELS_DIR: Path = BASE_DIR / "models"
+    UPLOAD_DIR: Path = BASE_DIR / "upload"
 
-  # LLM配置
-  LLM_PROVIDER : Literal["openai", "siliconflow", "ollama"] = "siliconflow"
+    VECTOR_STORE_TYPE: Literal["faiss", "chroma"] = "chroma"
+    CHROMA_ANONYMIZED_TELEMETRY: bool = False
+    EMBEDDING_MODEL_NAME: str = "bge_small_zh"
+    EMBEDDING_DEVICE: str = "cpu"
+    CHUNK_SIZE: int = 500
+    CHUNK_OVERLAP: int = 50
 
-  # ollama配置
-  OLLAMA_BASE_URL : str = "http://localhost:11434"
-  OLLAMA_MODEL_NAME : str = "qwen2.5:7b"
+    SEARCH_TOP_K: int = 5
+    USE_RERANKER: bool = True
+    RERANKER_MODEL_NAME: str = "bge_reranker_base"
 
-  # OpenAI配置
-  OPENAI_API_KEY : str = ""
-  OPENAI_BASE_URL : str = "https://api.openai.com/v1"
-  OPENAI_MODEL_NAME : str = "gpt-3.5-turbo"
+    LLM_PROVIDER: Literal["openai", "siliconflow", "ollama"] = "siliconflow"
 
-  # SiliconFlow配置
-  SILICONFLOW_API_KEY : str = ""
-  SILICONFLOW_BASE_URL : str = "https://api.siliconflow.cn/v1"
-  SILICONFLOW_MODEL_NAME : str = "Qwen/Qwen2.5-7B-Instruct"
+    OLLAMA_BASE_URL: str = "http://localhost:11434"
+    OLLAMA_MODEL_NAME: str = Field(
+        default="qwen2.5:7b",
+        validation_alias=AliasChoices("OLLAMA_MODEL_NAME", "OLLAMA_MODEL"),
+    )
 
-  # 服务配置
-  API_HOST : str = "localhost"
-  API_PORT : int = 8000
-  STREAMLIT_PORT : int = 8501
+    # SecretStr 可以防止配置对象被打印或记录日志时意外暴露完整密钥。
+    OPENAI_API_KEY: SecretStr = SecretStr("")
+    OPENAI_BASE_URL: str = "https://api.openai.com/v1"
+    OPENAI_MODEL_NAME: str = Field(
+        default="gpt-4o-mini",
+        validation_alias=AliasChoices("OPENAI_MODEL_NAME", "OPENAI_MODEL"),
+    )
 
-  # 日志配置
-  LOG_LEVEL : str = "INFO"
-  LOG_FILE : Path = BASE_DIR / "app.log"
+    SILICONFLOW_API_KEY: SecretStr = SecretStr("")
+    SILICONFLOW_BASE_URL: str = "https://api.siliconflow.cn/v1"
+    SILICONFLOW_MODEL_NAME: str = Field(
+        default="Qwen/Qwen2.5-7B-Instruct",
+        validation_alias=AliasChoices("SILICONFLOW_MODEL_NAME", "SILICONFLOW_MODEL"),
+    )
 
-class Config:
-  env_file = '.env'
-  env_file_encoding = "utf-8"
-  extra = 'ignore'
+    API_HOST: str = "127.0.0.1"
+    API_PORT: int = 8000
+    STREAMLIT_PORT: int = 8501
+    ALLOWED_ORIGINS: list[str] = [
+        "http://localhost:8501",
+        "http://127.0.0.1:8501",
+    ]
+
+    LOG_LEVEL: str = "INFO"
+    LOG_FILE: Path = BASE_DIR / "app.log"
+    LOG_TO_FILE: bool = True
+
+    # 对外只暴露当前 provider 对应的模型名，避免 API 层重复并写错 provider 分支。
+    @computed_field
+    @property
+    def active_model_name(self) -> str:
+        if self.LLM_PROVIDER == "ollama":
+            return self.OLLAMA_MODEL_NAME
+        if self.LLM_PROVIDER == "openai":
+            return self.OPENAI_MODEL_NAME
+        return self.SILICONFLOW_MODEL_NAME
+
+    def ensure_directories(self) -> None:
+        """启动前创建必要目录，使全新环境无需手工准备数据目录。"""
+        for directory in (
+            self.DATA_DIR,
+            self.VECTOR_DB_DIR,
+            self.MODELS_DIR,
+            self.UPLOAD_DIR,
+        ):
+            directory.mkdir(parents=True, exist_ok=True)
 
 
-# 实例化全局配置
 settings = Settings()
-
-# 确保必要目录存在
-for dir_path in [settings.DATA_DIR, settings.VECTOR_DB_DIR, settings.MODELS_DIR, settings.UPLOAD_DIR]:
-    dir_path.mkdir(parents=True, exist_ok=True) 
+settings.ensure_directories()

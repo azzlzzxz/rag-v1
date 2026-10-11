@@ -5,7 +5,9 @@
 import uuid
 import logging
 from datetime import datetime, timedelta
-from langchain.memory import ConversationBufferWindowMemory
+# 迁移过渡：LangChain 1.x 已将旧 Memory API 移至 langchain-classic。
+# 阶段 4 会改用 LangGraph checkpoint 后删除此依赖。
+from langchain_classic.memory import ConversationBufferWindowMemory
 
 logger = logging.getLogger(__name__)
 

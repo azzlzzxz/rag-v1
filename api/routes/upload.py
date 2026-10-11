@@ -44,13 +44,15 @@ async def upload_file(
     """
     # 验证文件类型
     allowed_extensions = {'.pdf', '.docx', '.doc', '.txt', '.md', '.xlsx', '.xls'}
-    file_ext = Path(file.filename).suffix.lower()
+    # 只保留文件名，丢弃客户端可能携带的目录，防止路径穿越写出 upload 目录。
+    original_filename = Path(file.filename or "").name
+    file_ext = Path(original_filename).suffix.lower()
     if file_ext not in allowed_extensions:
         raise HTTPException(400, f"不支持的文件格式: {file_ext}")
 
     # 生成唯一文件名
     unique_id = uuid.uuid4().hex[:8]
-    safe_filename = f"{unique_id}_{file.filename}"
+    safe_filename = f"{unique_id}_{original_filename}"
     save_path = settings.UPLOAD_DIR / safe_filename
 
     # 保存文件
@@ -64,7 +66,7 @@ async def upload_file(
     # 元数据
     metadata = {
         "category": category,
-        "original_filename": file.filename,
+        "original_filename": original_filename,
         "upload_time": str(Path(save_path).stat().st_ctime)
     }
 
@@ -78,7 +80,7 @@ async def upload_file(
 
     return JSONResponse({
         "status": "success",
-        "message": f"文件 {file.filename} 上传成功，正在后台处理",
+        "message": f"文件 {original_filename} 上传成功，正在后台处理",
         "file_id": unique_id,
         "filename": safe_filename
     })
@@ -97,14 +99,16 @@ async def upload_batch_files(
     results = []
     for file in files:
         try:
-            file_ext = Path(file.filename).suffix.lower()
+            # 批量上传与单文件上传采用相同的文件名净化规则。
+            original_filename = Path(file.filename or "").name
+            file_ext = Path(original_filename).suffix.lower()
             allowed = {'.pdf', '.docx', '.doc', '.txt', '.md', '.xlsx', '.xls'}
             if file_ext not in allowed:
                 results.append({"filename": file.filename, "status": "skipped", "reason": "不支持的文件格式"})
                 continue
 
             unique_id = uuid.uuid4().hex[:8]
-            safe_filename = f"{unique_id}_{file.filename}"
+            safe_filename = f"{unique_id}_{original_filename}"
             save_path = settings.UPLOAD_DIR / safe_filename
 
             with open(save_path, "wb") as buffer:
@@ -112,7 +116,7 @@ async def upload_batch_files(
 
             metadata = {
                 "category": category,
-                "original_filename": file.filename,
+                "original_filename": original_filename,
             }
             background_tasks.add_task(process_file_background, str(save_path), metadata, vector_store)
 

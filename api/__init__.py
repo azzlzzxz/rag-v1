@@ -1,3 +1,3 @@
-from .main import app
+"""FastAPI application package."""
 
 __all__ = ["app"]

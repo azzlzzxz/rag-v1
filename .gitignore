@@ -1,5 +1,13 @@
 .venv
+.venv-v2
 .env
+.pytest_cache/
+.ruff_cache/
+*.log
+*.log.*
+upload/
+data/
 models/*
 vector_db/*
-__pycache__
+__pycache__/
+*.py[cod]

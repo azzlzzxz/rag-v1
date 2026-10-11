@@ -9,7 +9,8 @@
 """
 import logging
 from config.settings import settings
-from langchain.retrievers import ContextualCompressionRetriever
+# 迁移过渡：阶段 3 将改用 LlamaIndex Retriever + Node Postprocessor，届时移除此导入。
+from langchain_classic.retrievers import ContextualCompressionRetriever
 from langchain_core.documents.compressor import BaseDocumentCompressor
 from core.vector_store import get_vector_store_manager
 from sentence_transformers import CrossEncoder

@@ -57,7 +57,7 @@ cp .env.example .env
 ```ini
 # LLM配置示例（使用硅基流动）
 LLM_PROVIDER=siliconflow
-SILICONFLOW_API_KEY=sk-xxxxxxxxxxxxxxxxxxxx
+SILICONFLOW_API_KEY=<your-api-key>
 SILICONFLOW_MODEL=Qwen/Qwen2.5-7B-Instruct
 
 # 或使用本地Ollama
