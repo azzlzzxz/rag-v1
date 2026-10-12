@@ -26,6 +26,24 @@ class DocumentStatusResponse(BaseModel):
     updated_at: str
 
 
+class DocumentSummary(BaseModel):
+    """知识库页面展示所需的文档摘要，不暴露服务器本地路径和文件 hash。"""
+
+    document_id: str
+    file_name: str
+    category: str
+    source_count: int
+    ingested_at: str
+    updated_at: str
+
+
+class DocumentListResponse(BaseModel):
+    """稳定的文档列表契约；未来增加分页字段时无需改变顶层类型。"""
+
+    total: int
+    documents: list[DocumentSummary]
+
+
 class DocumentDeleteResponse(BaseModel):
     document_id: str
     deleted: bool

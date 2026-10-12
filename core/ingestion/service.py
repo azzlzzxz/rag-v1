@@ -97,6 +97,22 @@ class DeletionResult:
     deleted_chunks: int
 
 
+@dataclass(frozen=True)
+class DocumentRecord:
+    """可公开展示的 manifest 文档摘要。
+
+    manifest 内部还保存 file_hash、source_ids、upload_path 等运行字段。这里主动挑选
+    允许公开的字段，避免前端接口泄漏本地绝对路径或文件指纹。
+    """
+
+    document_id: str
+    file_name: str
+    category: str
+    source_count: int
+    ingested_at: str
+    updated_at: str
+
+
 class IngestionService:
     """协调文档读取、增量判断、Embedding、向量写入和摄取状态。
 
@@ -372,6 +388,28 @@ class IngestionService:
             "node_count": collection.count(),
             "categories": categories,
         }
+
+    def list_documents(self) -> list[DocumentRecord]:
+        """读取可公开的文档摘要，并按最近更新时间倒序返回。
+
+        文档列表以 manifest 为准，因为 manifest 是摄取事务完成后的业务索引；不能直接
+        从 Chroma 聚合，否则一次文档更新过程中可能短暂看到不完整的 chunk 集合。
+        """
+        with self._lock:
+            manifest = self._load_manifest()
+
+        records = [
+            DocumentRecord(
+                document_id=document_id,
+                file_name=str(item.get("file_name") or "未知文档"),
+                category=str(item.get("category") or "general"),
+                source_count=len(item.get("source_ids") or []),
+                ingested_at=str(item.get("ingested_at") or ""),
+                updated_at=str(item.get("updated_at") or item.get("ingested_at") or ""),
+            )
+            for document_id, item in manifest.items()
+        ]
+        return sorted(records, key=lambda item: item.updated_at, reverse=True)
 
     def process_job(
         self,

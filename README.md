@@ -149,6 +149,7 @@ rag-qa-system/
 | GET | `/api/v1/system/health` | 健康检查 |
 | POST | `/api/v1/documents/upload` | 上传文档，返回任务 ID 和文档 ID |
 | GET | `/api/v1/documents/{file_id}/status` | 查询摄取状态 |
+| GET | `/api/v1/documents` | 获取可公开的文档摘要列表 |
 | DELETE | `/api/v1/documents/{document_id}` | 删除业务文档 |
 | POST | `/api/v1/qa/ask` | 稳定问答契约与引用 |
 | POST | `/api/v1/qa/stream` | SSE 问答生命周期事件 |
@@ -157,6 +158,10 @@ rag-qa-system/
 | GET | `/api/v1/knowledge/stats` | 知识库统计 |
 
 详细文档访问：<http://localhost:8000/docs>
+
+前端共四个页面：智能问答、知识库、检索调试和评测看板。`thread_id` 会写入浏览器 URL，
+刷新页面后前端通过会话 API 恢复 LangGraph checkpoint 历史。完整演示步骤见
+`docs/PHASE6_STREAMLIT_DEMO_NOTES.md`。
 
 ---
 

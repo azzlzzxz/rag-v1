@@ -5,7 +5,7 @@ import pytest
 
 from api.dependencies import get_ingestion_service_dep
 from api.main import app
-from core.ingestion import DeletionResult
+from core.ingestion import DeletionResult, DocumentRecord
 from core.ingestion.jobs import IngestionJobRepository
 
 
@@ -25,6 +25,18 @@ class FakeIngestionService:
 
     def get_knowledge_stats(self):
         return {"document_count": 1, "node_count": 2, "categories": {"hr": 1}}
+
+    def list_documents(self):
+        return [
+            DocumentRecord(
+                document_id="doc-policy",
+                file_name="policy.txt",
+                category="hr",
+                source_count=1,
+                ingested_at="2026-10-12T08:00:00+00:00",
+                updated_at="2026-10-12T08:01:00+00:00",
+            )
+        ]
 
 
 @pytest.mark.asyncio
@@ -57,6 +69,7 @@ async def test_document_upload_status_and_delete_contract(tmp_path: Path, monkey
             )
             missing = await client.delete("/api/v1/documents/missing")
             stats = await client.get("/api/v1/knowledge/stats")
+            documents = await client.get("/api/v1/documents")
     finally:
         app.dependency_overrides.clear()
 
@@ -73,4 +86,17 @@ async def test_document_upload_status_and_delete_contract(tmp_path: Path, monkey
         "document_count": 1,
         "node_count": 2,
         "categories": {"hr": 1},
+    }
+    assert documents.json() == {
+        "total": 1,
+        "documents": [
+            {
+                "document_id": "doc-policy",
+                "file_name": "policy.txt",
+                "category": "hr",
+                "source_count": 1,
+                "ingested_at": "2026-10-12T08:00:00+00:00",
+                "updated_at": "2026-10-12T08:01:00+00:00",
+            }
+        ],
     }

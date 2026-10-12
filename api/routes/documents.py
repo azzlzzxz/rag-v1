@@ -11,6 +11,8 @@ from api.dependencies import get_ingestion_service_dep
 from api.routes.upload import _save_upload
 from api.schemas.documents import (
     DocumentDeleteResponse,
+    DocumentListResponse,
+    DocumentSummary,
     DocumentStatusResponse,
     DocumentUploadResponse,
 )
@@ -18,6 +20,16 @@ from core.ingestion import IngestionService
 from core.ingestion.ids import build_document_id
 
 router = APIRouter(prefix="/documents", tags=["文档"])
+
+
+@router.get("", response_model=DocumentListResponse)
+async def list_documents(
+    ingestion: IngestionService = Depends(get_ingestion_service_dep),
+) -> DocumentListResponse:
+    """返回知识库文档摘要，供 Streamlit 刷新后恢复列表。"""
+    records = ingestion.list_documents()
+    documents = [DocumentSummary(**record.__dict__) for record in records]
+    return DocumentListResponse(total=len(documents), documents=documents)
 
 
 @router.post("/upload", response_model=DocumentUploadResponse, status_code=202)
