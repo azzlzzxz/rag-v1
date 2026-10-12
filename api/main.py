@@ -9,6 +9,7 @@ from config.settings import settings
 from config.logging_config import setup_logging
 from api.routes import (
     documents_router,
+    evaluations_router,
     knowledge_router,
     qa_router,
     sessions_router,
@@ -62,6 +63,7 @@ app.include_router(knowledge_router, prefix="/api/v1")
 app.include_router(system_router, prefix="/api/v1")
 app.include_router(documents_router, prefix="/api/v1")
 app.include_router(sessions_router, prefix="/api/v1")
+app.include_router(evaluations_router, prefix="/api/v1")
 
 
 @app.get("/")

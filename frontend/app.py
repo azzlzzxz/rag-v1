@@ -20,7 +20,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from frontend.api_client import APIClientError, RAGAPIClient  # noqa: E402
-from frontend.reporting import load_report, metric_items  # noqa: E402
+from frontend.reporting import experiment_rows, metric_items  # noqa: E402
 
 
 st.set_page_config(
@@ -327,45 +327,147 @@ def render_debug(client: RAGAPIClient, thread_id: str) -> None:
         st.info("输入一个问题后，这里会展示后端已脱敏的完整检索轨迹。")
 
 
-def render_evaluation() -> None:
-    page_header("评测看板", "读取离线评测报告，定位没有命中的 Bad Case")
-    report_path = PROJECT_ROOT / "reports" / "latest.json"
-    dataset_path = PROJECT_ROOT / "evaluation" / "retrieval_cases.json"
-    try:
-        report = load_report(report_path)
-    except (ValueError, OSError) as exc:
-        show_error(f"评测文件读取失败：{exc}")
-        return
+def _format_metric(label: str, value: float) -> str:
+    """比例显示百分数，延迟显示毫秒，避免所有指标都用无单位小数。"""
+    return f"{value:.1f} ms" if "耗时" in label else f"{value:.1%}"
 
-    # retrieval_cases.json 是数组，不符合 report 格式，因此只在下方用标准 json 读取数量。
-    import json
 
-    cases = json.loads(dataset_path.read_text(encoding="utf-8")) if dataset_path.exists() else []
-    st.metric("已准备评测问题", len(cases))
-    if report is None:
-        st.info(
-            "尚未生成 `reports/latest.json`。本页已完成展示契约；Recall、MRR、Bad Case "
-            "计算将在阶段 7 实现，避免阶段 6 为了 UI 重复评测逻辑。"
-        )
-        if cases:
-            st.dataframe(cases, width="stretch", hide_index=True)
-        return
-
+def display_evaluation_report(report: dict[str, Any]) -> None:
+    """展示已经由 API 生成的报告；页面不重复任何指标计算。"""
+    st.markdown("### 评测结果")
+    st.caption(
+        f"数据集：{report.get('dataset', '-')} · 用例：{report.get('cases', 0)} · "
+        f"主实验：{report.get('primary_profile') or '-'} · 生成时间：{report.get('generated_at', '-')}"
+    )
     metrics = metric_items(report)
     if metrics:
         columns = st.columns(min(4, len(metrics)))
         for index, (name, value) in enumerate(metrics):
-            columns[index % len(columns)].metric(name, f"{value:.3f}")
+            columns[index % len(columns)].metric(name, _format_metric(name, value))
+
+    comparisons = experiment_rows(report)
+    if comparisons:
+        st.markdown("### 检索消融实验")
+        st.dataframe(comparisons, width="stretch", hide_index=True)
 
     details = report.get("details") or []
-    bad_cases = [item for item in details if item.get("rank") is None or item.get("passed") is False]
-    st.markdown(f"### Bad Case（{len(bad_cases)} / {len(details)}）")
+    bad_cases = report.get("bad_cases") or [
+        item for item in details if item.get("rank") is None or item.get("passed") is False
+    ]
+    st.markdown(f"### Bad Case（{len(bad_cases)}）")
     if bad_cases:
         st.dataframe(bad_cases, width="stretch", hide_index=True)
     else:
         st.success("当前报告中没有 Bad Case。")
     with st.expander("查看原始评测报告"):
         st.json(report)
+
+
+def render_evaluation(client: RAGAPIClient) -> None:
+    page_header("评测看板", "在页面启动后台评测，查看消融实验、指标公式和 Bad Case")
+    try:
+        metadata = client.evaluation_metadata()
+    except APIClientError as exc:
+        show_error(str(exc))
+        return
+
+    # Streamlit 会话断开或浏览器刷新时，从后端持久化任务中恢复当前 run_id。
+    # 这样长时间评测不会因为页面重连而“找不到任务”。
+    if "evaluation_job" not in st.session_state and metadata.get("active_run"):
+        st.session_state.evaluation_job = metadata["active_run"]
+
+    summary_cols = st.columns(3)
+    summary_cols[0].metric("评测用例", metadata.get("case_count", 0))
+    summary_cols[1].metric("场景类型", len(metadata.get("case_types") or []))
+    summary_cols[2].metric("检索方案", len(metadata.get("profiles") or []))
+
+    with st.expander("指标公式与含义", expanded=True):
+        metric_rows = [
+            {
+                "指标": item["name"],
+                "公式": item["formula"],
+                "含义": item["meaning"],
+                "范围": item["range"],
+                "统计范围": item["scope"],
+            }
+            for item in metadata.get("metrics", [])
+        ]
+        st.dataframe(metric_rows, width="stretch", hide_index=True)
+        st.caption("比例指标越高越好；耗时指标越低越好。关键词覆盖率是确定性规则，不等同于语义正确性。")
+
+    st.markdown("### 启动评测")
+    mode_labels = {
+        "只测检索（不调用 LLM）": "retrieval",
+        "完整评测（检索 + Agent，会调用 LLM）": "all",
+    }
+    selected_label = st.selectbox("评测模式", list(mode_labels))
+    form_col1, form_col2 = st.columns(2)
+    with form_col1:
+        top_k = st.number_input("Top-K", min_value=1, max_value=20, value=5, step=1)
+    with form_col2:
+        category = st.text_input("知识库分类", value="demo")
+    mode = mode_labels[selected_label]
+    confirm_cost = st.checkbox(
+        "我确认完整评测会调用当前配置的 LLM，可能产生 API 费用",
+        disabled=mode == "retrieval",
+    )
+    submitted = st.button(
+        "开始后台评测",
+        type="primary",
+        disabled=mode != "retrieval" and not confirm_cost,
+    )
+
+    if submitted:
+        try:
+            job = client.start_evaluation(
+                mode=mode,
+                top_k=int(top_k),
+                category=category.strip(),
+                confirm_llm_cost=confirm_cost,
+            )
+            st.session_state.evaluation_job = job
+            # 新任务开始后先隐藏旧报告，避免运行中误把上次指标当成本次结果。
+            st.session_state.pop("evaluation_report", None)
+            st.toast("评测任务已提交")
+            st.rerun()
+        except APIClientError as exc:
+            show_error(str(exc))
+
+    job = st.session_state.get("evaluation_job")
+    if job:
+        try:
+            job = client.evaluation_status(job["run_id"])
+            st.session_state.evaluation_job = job
+            status = job["status"]
+            if status in {"pending", "running"}:
+                st.info(
+                    f"任务 `{job['run_id'][:8]}` 正在执行（{status}）。"
+                    "评测可能需要数分钟，稍后点击刷新。"
+                )
+            elif status == "failed":
+                st.error(job.get("error") or "评测执行失败")
+            elif status == "succeeded":
+                st.success(f"任务 `{job['run_id'][:8]}` 已完成")
+                if "evaluation_report" not in st.session_state:
+                    st.session_state.evaluation_report = client.evaluation_report(job["run_id"])
+        except APIClientError as exc:
+            show_error(str(exc))
+
+    action_col1, action_col2 = st.columns(2)
+    if action_col1.button("刷新任务状态", width="stretch", disabled=job is None):
+        st.rerun()
+    if action_col2.button("加载最近报告", width="stretch"):
+        try:
+            st.session_state.evaluation_report = client.latest_evaluation_report()
+            st.rerun()
+        except APIClientError as exc:
+            show_error(str(exc))
+
+    report = st.session_state.get("evaluation_report")
+    if report:
+        display_evaluation_report(report)
+    else:
+        st.info("尚未加载报告。可以在上方启动评测，或加载 API 中最近一次成功报告。")
 
 
 def main() -> None:
@@ -389,7 +491,7 @@ def main() -> None:
     elif page == "检索调试":
         render_debug(client, thread_id)
     else:
-        render_evaluation()
+        render_evaluation(client)
 
 
 if __name__ == "__main__":

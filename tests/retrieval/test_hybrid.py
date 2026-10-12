@@ -126,3 +126,29 @@ def test_reranker_score_and_trace_are_labeled_as_raw(tmp_path: Path):
     assert result.trace["rerank_applied"] is True
     assert result.trace["fusion"][0]["score"] != 3.5
     assert type(result.insufficient_evidence) is bool
+
+
+def test_evaluation_profiles_keep_ablation_boundaries(tmp_path: Path):
+    """消融实验必须真的关闭组件，不能只给同一结果换一个名字。"""
+    first = node("first", "普通内容")
+    second = node("second", "需要命中的第二条")
+    service = HybridRetrievalService(
+        make_settings(tmp_path, USE_RERANKER=True),
+        vector_search=lambda query, top_k, filters: [
+            NodeWithScore(node=first, score=0.9),
+            NodeWithScore(node=second, score=0.8),
+        ],
+        corpus_loader=lambda: [first, second],
+        reranker=FakeReranker(),
+    )
+
+    vector = service.retrieve("第二条", profile="vector_only")
+    vector_rerank = service.retrieve("第二条", profile="vector_rerank")
+    hybrid = service.retrieve("第二条", profile="hybrid_rerank")
+
+    assert vector.nodes[0].node.node_id == "first"
+    assert vector.trace["rerank_applied"] is False
+    assert set(vector.trace["channels"]) == {"vector:0"}
+    assert vector_rerank.nodes[0].node.node_id == "second"
+    assert vector_rerank.trace["fusion"] == []
+    assert any(name.startswith("bm25:") for name in hybrid.trace["channels"])

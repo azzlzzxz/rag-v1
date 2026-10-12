@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     UPLOAD_DIR: Path = BASE_DIR / "upload"
     INGESTION_STORAGE_DIR: Path = DATA_DIR / "ingestion"
     CHECKPOINT_DB_PATH: Path = DATA_DIR / "agent_checkpoints.db"
+    EVALUATION_DATASET_PATH: Path = BASE_DIR / "evaluation" / "rag_cases.json"
+    EVALUATION_REPORT_DIR: Path = BASE_DIR / "reports"
+    EVALUATION_JOB_DB_PATH: Path = DATA_DIR / "evaluation" / "jobs.db"
 
     VECTOR_STORE_TYPE: Literal["faiss", "chroma"] = "chroma"
     CHROMA_ANONYMIZED_TELEMETRY: bool = False
@@ -113,6 +116,8 @@ class Settings(BaseSettings):
             self.UPLOAD_DIR,
             self.INGESTION_STORAGE_DIR,
             self.CHECKPOINT_DB_PATH.parent,
+            self.EVALUATION_REPORT_DIR,
+            self.EVALUATION_JOB_DB_PATH.parent,
         ):
             directory.mkdir(parents=True, exist_ok=True)
 

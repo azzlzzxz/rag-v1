@@ -12,7 +12,7 @@ import logging
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 import chromadb
 from chromadb.config import Settings as ChromaSettings
@@ -30,6 +30,7 @@ from core.retrieval.native import build_native_bm25, native_rrf_fuse
 logger = logging.getLogger(__name__)
 VectorSearch = Callable[[str, int, dict | None], list[NodeWithScore]]
 CorpusLoader = Callable[[], list[BaseNode]]
+RetrievalProfile = Literal["vector_only", "vector_rerank", "hybrid_rerank"]
 
 
 @dataclass(frozen=True)
@@ -225,13 +226,21 @@ class HybridRetrievalService:
         alternate_queries: Sequence[str] | None = None,
         top_k: int | None = None,
         filter_dict: dict | None = None,
+        profile: RetrievalProfile = "hybrid_rerank",
     ) -> HybridRetrievalResult:
-        """执行原生向量 + 原生 BM25 + 原生 RRF + 可选原生 Rerank。
+        """按评测 Profile 执行检索，默认行为仍是完整混合链路。
 
         ``alternate_queries`` 为 query 改写预留。各 query 的两种召回都是独立通道；本层保留
         原始结果，方便排错，也避免融合组件再次执行昂贵检索。
+
+        Profiles:
+            vector_only: 只取原问题的向量结果，不执行 BM25、RRF 或 Rerank。
+            vector_rerank: 向量候选经过 Reranker，不执行 BM25/RRF。
+            hybrid_rerank: 生产默认链路，向量 + BM25 + RRF + 可选 Rerank。
         """
         started_at = time.perf_counter()
+        if profile not in {"vector_only", "vector_rerank", "hybrid_rerank"}:
+            raise ValueError(f"不支持的检索 Profile: {profile}")
         if not query.strip():
             return HybridRetrievalResult(
                 nodes=[],
@@ -248,6 +257,9 @@ class HybridRetrievalService:
                 if value.strip()
             )
         )
+        if profile != "hybrid_rerank":
+            # 消融基线只评估原始向量问题，不享受 Query Rewrite 或多 Query 带来的额外召回。
+            queries = [query.strip()]
         self._refresh_corpus_if_needed()
         if not self._corpus_nodes:
             return HybridRetrievalResult(
@@ -255,11 +267,14 @@ class HybridRetrievalService:
                 trace={
                     "query": query,
                     "queries": queries,
+                    "profile": profile,
                     "channels": {},
                     "fusion": [],
                     "rerank": [],
                     "rerank_applied": False,
-                    "score_type": "rrf",
+                    "score_type": (
+                        "rrf" if profile == "hybrid_rerank" else "vector_similarity"
+                    ),
                     "threshold": self.settings.RETRIEVAL_MIN_FUSION_SCORE,
                     "insufficient_evidence": True,
                     "errors": [],
@@ -275,14 +290,15 @@ class HybridRetrievalService:
         rankings: dict[str, list[NodeWithScore]] = {}
         errors: list[str] = []
 
-        # 当 metadata filter 过滤掉全部 Node 时，官方 BM25Retriever 会在构造阶段抛错。
-        # 这只代表关键词通道没有候选，不应阻断仍然可用的向量通道。
-        try:
-            bm25 = self._get_bm25(candidate_k, filter_dict)
-        except Exception as exc:
-            logger.exception("BM25 初始化失败")
-            bm25 = None
-            errors.append(f"bm25:init: {type(exc).__name__}: {exc}")
+        bm25 = None
+        if profile == "hybrid_rerank":
+            # 当 metadata filter 过滤掉全部 Node 时，官方 BM25Retriever 会在构造阶段抛错。
+            # 这只代表关键词通道没有候选，不应阻断仍然可用的向量通道。
+            try:
+                bm25 = self._get_bm25(candidate_k, filter_dict)
+            except Exception as exc:
+                logger.exception("BM25 初始化失败")
+                errors.append(f"bm25:init: {type(exc).__name__}: {exc}")
 
         for index, current_query in enumerate(queries):
             try:
@@ -295,28 +311,39 @@ class HybridRetrievalService:
                 rankings[f"vector:{index}"] = []
                 errors.append(f"vector:{index}: {type(exc).__name__}: {exc}")
 
-            try:
-                if bm25 is None:
+            if profile == "hybrid_rerank":
+                try:
+                    if bm25 is None:
+                        rankings[f"bm25:{index}"] = []
+                        continue
+                    native_bm25_results = list(bm25.retrieve(current_query))
+                    # 官方 BM25 会返回 0 分占位项；它们不是关键词命中，不能进入 RRF 获得排名分。
+                    rankings[f"bm25:{index}"] = [
+                        item for item in native_bm25_results if (item.score or 0.0) > 0.0
+                    ]
+                except Exception as exc:
+                    logger.exception("BM25 召回失败: query=%s", current_query)
                     rankings[f"bm25:{index}"] = []
-                    continue
-                native_bm25_results = list(bm25.retrieve(current_query))
-                # 官方 BM25 会返回 0 分占位项；它们不是关键词命中，不能进入 RRF 获得排名分。
-                rankings[f"bm25:{index}"] = [
-                    item for item in native_bm25_results if (item.score or 0.0) > 0.0
-                ]
-            except Exception as exc:
-                logger.exception("BM25 召回失败: query=%s", current_query)
-                rankings[f"bm25:{index}"] = []
-                errors.append(f"bm25:{index}: {type(exc).__name__}: {exc}")
+                    errors.append(f"bm25:{index}: {type(exc).__name__}: {exc}")
 
-        contributors = self._contributors(rankings)
-        # 真正的 RRF 公式由 QueryFusionRetriever 执行，项目只传入已获取的通道结果。
-        fused = native_rrf_fuse(rankings, query=query, top_k=candidate_k)
-        fusion_candidates = fused[:candidate_k]
+        contributors: dict[str, dict[str, int]] = {}
+        if profile == "hybrid_rerank":
+            contributors = self._contributors(rankings)
+            # 真正的 RRF 公式由 QueryFusionRetriever 执行，项目只传入已获取的通道结果。
+            fused = native_rrf_fuse(rankings, query=query, top_k=candidate_k)
+            fusion_candidates = fused[:candidate_k]
+        else:
+            # 两个向量基线只使用原始问题，防止 Query Rewrite 给基线额外增益。
+            # 复制列表避免 Reranker 原地改分污染 vector channel 的调试 trace。
+            fused = []
+            fusion_candidates = [
+                NodeWithScore(node=item.node, score=item.score)
+                for item in rankings.get("vector:0", [])[:candidate_k]
+            ]
 
         rerank_applied = False
         rerank_error: str | None = None
-        reranker = self._get_reranker(final_top_k)
+        reranker = self._get_reranker(final_top_k) if profile != "vector_only" else None
         if reranker is not None and fusion_candidates:
             try:
                 # SentenceTransformerRerank 会原地覆盖 NodeWithScore.score。传入浅复制对象，
@@ -358,13 +385,20 @@ class HybridRetrievalService:
         trace = {
             "query": query,
             "queries": queries,
+            "profile": profile,
             "channels": {
                 channel: self._trace_items(items) for channel, items in rankings.items()
             },
             "fusion": self._fusion_trace(fused[:candidate_k], contributors),
             "rerank": self._trace_items(final_nodes) if rerank_applied else [],
             "rerank_applied": rerank_applied,
-            "score_type": "rerank_raw" if rerank_applied else "rrf",
+            "score_type": (
+                "rerank_raw"
+                if rerank_applied
+                else "rrf"
+                if profile == "hybrid_rerank"
+                else "vector_similarity"
+            ),
             "threshold": threshold,
             "insufficient_evidence": insufficient,
             "errors": [*errors, *([rerank_error] if rerank_error else [])],

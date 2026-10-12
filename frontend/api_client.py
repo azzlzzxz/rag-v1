@@ -88,6 +88,37 @@ class RAGAPIClient:
     def delete_session(self, thread_id: str) -> dict[str, Any]:
         return self._request("DELETE", f"/api/v1/sessions/{thread_id}")
 
+    def evaluation_metadata(self) -> dict[str, Any]:
+        return self._request("GET", "/api/v1/evaluations/metadata")
+
+    def start_evaluation(
+        self,
+        *,
+        mode: str,
+        top_k: int,
+        category: str,
+        confirm_llm_cost: bool,
+    ) -> dict[str, Any]:
+        return self._request(
+            "POST",
+            "/api/v1/evaluations/runs",
+            json={
+                "mode": mode,
+                "top_k": top_k,
+                "category": category,
+                "confirm_llm_cost": confirm_llm_cost,
+            },
+        )
+
+    def evaluation_status(self, run_id: str) -> dict[str, Any]:
+        return self._request("GET", f"/api/v1/evaluations/runs/{run_id}")
+
+    def evaluation_report(self, run_id: str) -> dict[str, Any]:
+        return self._request("GET", f"/api/v1/evaluations/runs/{run_id}/report")
+
+    def latest_evaluation_report(self) -> dict[str, Any]:
+        return self._request("GET", "/api/v1/evaluations/latest")
+
     def stream_answer(
         self, question: str, thread_id: str, *, debug: bool = False
     ) -> Iterator[tuple[str, dict[str, Any]]]:

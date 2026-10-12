@@ -14,6 +14,14 @@ def test_api_client_calls_stable_contracts_and_parses_sse():
             return httpx.Response(200, json={"status": "healthy", "version": "2.0.0"})
         if request.url.path == "/api/v1/documents":
             return httpx.Response(200, json={"total": 0, "documents": []})
+        if request.url.path == "/api/v1/evaluations/metadata":
+            return httpx.Response(200, json={"case_count": 13, "metrics": []})
+        if request.url.path == "/api/v1/evaluations/runs" and request.method == "POST":
+            return httpx.Response(202, json={"run_id": "run-1", "status": "pending"})
+        if request.url.path == "/api/v1/evaluations/runs/run-1":
+            return httpx.Response(200, json={"run_id": "run-1", "status": "succeeded"})
+        if request.url.path == "/api/v1/evaluations/runs/run-1/report":
+            return httpx.Response(200, json={"cases": 13, "mrr": 1.0})
         if request.url.path == "/api/v1/qa/stream":
             body = (
                 'event: started\ndata: {"thread_id":"demo"}\n\n'
@@ -30,6 +38,12 @@ def test_api_client_calls_stable_contracts_and_parses_sse():
     client = RAGAPIClient("http://test", transport=httpx.MockTransport(handler))
     assert client.health()["status"] == "healthy"
     assert client.list_documents() == {"total": 0, "documents": []}
+    assert client.evaluation_metadata()["case_count"] == 13
+    job = client.start_evaluation(
+        mode="retrieval", top_k=5, category="demo", confirm_llm_cost=False
+    )
+    assert client.evaluation_status(job["run_id"])["status"] == "succeeded"
+    assert client.evaluation_report(job["run_id"])["mrr"] == 1.0
     events = list(client.stream_answer("请假制度？", "demo"))
     assert [event for event, _ in events] == ["started", "completed", "done"]
     assert events[1][1]["answer"] == "制度答案"

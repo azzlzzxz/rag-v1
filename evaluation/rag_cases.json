@@ -1,0 +1,107 @@
+[
+  {
+    "id": "leave-direct-limit",
+    "type": "direct",
+    "query": "员工全年事假最多可以请多少天？",
+    "relevant_files": ["test.txt"],
+    "expected_keywords": ["15天"],
+    "expected_decision": "answer"
+  },
+  {
+    "id": "sick-direct-materials",
+    "type": "direct",
+    "query": "申请病假需要提供哪些医院材料？",
+    "relevant_files": ["test.txt"],
+    "expected_keywords": ["县级及以上医院", "病历", "诊断证明", "缴费凭证"],
+    "expected_decision": "answer"
+  },
+  {
+    "id": "marriage-direct-window",
+    "type": "direct",
+    "query": "婚假需要在结婚登记后多久内休完？",
+    "relevant_files": ["test.txt"],
+    "expected_keywords": ["6个月"],
+    "expected_decision": "answer"
+  },
+  {
+    "id": "leave-semantic-rewrite",
+    "type": "semantic_rewrite",
+    "query": "正式员工一年因为个人私事离岗的累计上限是多少？",
+    "relevant_files": ["test.txt"],
+    "expected_keywords": ["15天"],
+    "expected_decision": "answer"
+  },
+  {
+    "id": "probation-numbered-term",
+    "type": "numbered_term",
+    "query": "第四条中试用期员工全年累计事假的限制是什么？",
+    "relevant_files": ["test.txt"],
+    "expected_keywords": ["7天"],
+    "expected_decision": "answer"
+  },
+  {
+    "id": "sick-salary-similar-policy",
+    "type": "similar_policy",
+    "query": "病假累计不超过30天和事假的工资处理有什么区别？",
+    "relevant_files": ["test.txt"],
+    "expected_keywords": ["80%", "不发放工资"],
+    "expected_decision": "answer"
+  },
+  {
+    "id": "expense-table-hotel",
+    "type": "table",
+    "query": "普通员工去北京出差，每晚住宿标准是多少？",
+    "relevant_files": ["expense_policy.md"],
+    "expected_keywords": ["500元/晚"],
+    "expected_decision": "answer"
+  },
+  {
+    "id": "expense-table-train",
+    "type": "table",
+    "query": "部门负责人乘坐高铁可以报销什么席别？",
+    "relevant_files": ["expense_policy.md"],
+    "expected_keywords": ["一等座"],
+    "expected_decision": "answer"
+  },
+  {
+    "id": "expense-numbered-deadline",
+    "type": "numbered_term",
+    "query": "出差结束后几天内要在费用系统提交报销？",
+    "relevant_files": ["expense_policy.md"],
+    "expected_keywords": ["10个工作日"],
+    "expected_decision": "answer"
+  },
+  {
+    "id": "leave-multi-turn",
+    "type": "multi_turn",
+    "history": ["正式员工一年最多能请多少天事假？"],
+    "query": "那试用期员工呢？",
+    "relevant_files": ["test.txt"],
+    "expected_keywords": ["7天"],
+    "expected_decision": "answer"
+  },
+  {
+    "id": "unknown-quantum-refuse",
+    "type": "no_answer",
+    "query": "公司的量子纠错编码技术规范是什么？",
+    "relevant_files": [],
+    "expected_keywords": [],
+    "expected_decision": "refuse"
+  },
+  {
+    "id": "unknown-overseas-refuse",
+    "type": "no_answer",
+    "query": "海外办公室搬迁补贴的金额是多少？",
+    "relevant_files": [],
+    "expected_keywords": [],
+    "expected_decision": "refuse"
+  },
+  {
+    "id": "ambiguous-no-history",
+    "type": "ambiguous",
+    "query": "这个要怎么办？",
+    "relevant_files": [],
+    "expected_keywords": [],
+    "expected_decision": "clarify"
+  }
+]

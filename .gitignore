@@ -11,3 +11,5 @@ models/*
 vector_db/*
 __pycache__/
 *.py[cod]
+reports/*.json
+reports/*.tmp
