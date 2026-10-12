@@ -21,6 +21,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from frontend.api_client import APIClientError, RAGAPIClient  # noqa: E402
 from frontend.reporting import experiment_rows, metric_items  # noqa: E402
+from frontend.streaming import typewriter_chunks  # noqa: E402
 
 
 st.set_page_config(
@@ -226,7 +227,10 @@ def render_chat(client: RAGAPIClient, thread_id: str) -> None:
                         raise APIClientError(payload.get("message", "问答失败"))
             if completed is None:
                 raise APIClientError("流式响应未返回完成事件")
-            st.markdown(completed["answer"])
+            # 后端 completed 事件携带完整、已经过引用编号处理的答案。这里使用 Streamlit
+            # 原生 write_stream 逐小段渲染，形成打字机效果；历史消息重放时仍一次性展示，
+            # 避免用户每次刷新都要重新等待动画。
+            st.write_stream(typewriter_chunks(completed["answer"]))
             display_citations(completed.get("citations", []))
             st.session_state.messages.append(
                 {

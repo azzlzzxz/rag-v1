@@ -21,7 +21,7 @@ rerun 不会重新创建模型/向量库对象，也不会绕过阶段 5 的请�
 
 | 页面 | 能力 | 面试时建议说明 |
 | --- | --- | --- |
-| 智能问答 | SSE 状态、回答、引用、多轮 thread | 当前是生命周期流，未来可兼容新增 token 事件 |
+| 智能问答 | SSE 状态、打字机回答、引用、多轮 thread | 当前是生命周期流，未来可兼容新增 token 事件 |
 | 知识库 | 上传、任务轮询、列表、删除、统计 | `file_id` 查任务，`document_id` 管业务文档 |
 | 检索调试 | Query Rewrite、Vector/BM25、RRF、Rerank、耗时 | 前端只展示后端已脱敏 trace |
 | 评测看板 | 指标、Bad Case、原始报告 | 阶段 6 只读报告，阶段 7 负责计算指标 |
@@ -41,11 +41,16 @@ sequenceDiagram
     G-->>F: answer + citations + decision
     F-->>S: completed
     F-->>S: done
-    S-->>U: 回答、引用、完成状态
+    S-->>U: 打字机展示回答，再展示引用与完成状态
 ```
 
 当前 `/qa/stream` 不是逐 token 输出，而是 `started → completed → done` 生命周期事件。
 这是刻意保持的稳定契约：UI 能显示进度，未来后端新增 `token` 事件时，现有解析器仍可工作。
+
+收到 `completed` 后，前端通过 `frontend.streaming.typewriter_chunks` 将完整答案按两个字符
+切片，再交给 Streamlit 原生 `st.write_stream` 渐进渲染。这个效果不会修改回答文本、引用
+编号或 checkpoint；历史回答仍直接展示，避免刷新页面时重复播放动画。需要区分：当前实现
+是“前端打字机展示”，并不表示底层模型已开启逐 token 推理流。
 
 ### 2.2 会话刷新恢复
 
@@ -102,9 +107,11 @@ GET /api/v1/documents
 | --- | --- |
 | `frontend/app.py` | 四页布局、session state、URL thread 恢复和展示组件 |
 | `frontend/api_client.py` | 普通 HTTP、上传、错误转换与 SSE 解析 |
+| `frontend/streaming.py` | 将完整回答转换为打字机展示所需的小段迭代器 |
 | `frontend/reporting.py` | 安全读取阶段 7 的 JSON 报告、提取数字指标 |
 | `run_frontend.py` | 使用当前 Python 环境启动 Streamlit |
 | `tests/frontend/test_api_client.py` | 稳定路径、中文 SSE 和错误契约测试 |
+| `tests/frontend/test_streaming.py` | 打字机分段不丢字、不改引用及参数校验 |
 | `tests/frontend/test_reporting.py` | 报告格式与指标提取测试 |
 
 核心分支和状态处理均附有中文注释，重点解释“为什么通过 API”“为什么 thread 要写 URL”以及
